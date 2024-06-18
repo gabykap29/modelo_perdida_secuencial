@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualización de Pérdida con TensorFlow.js</title>
+    <!-- Cargar TensorFlow.js desde CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <!-- Cargar tfjs-vis desde CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis"></script>
+</head>
+<body>
+    <h1>Entrenamiento del Modelo con Visualización de Pérdida</h1>
+    <!-- Contenedor para la gráfica de la pérdida -->
+    <div id="loss-canvas"></div>
+    <script>
+        // Crear un modelo secuencial
+        const model = tf.sequential();
+        // Agregar una capa densa con 1 unidad y una entrada de 1 dimensión
+        model.add(tf.layers.dense({units: 1, inputShape: [1]}));
+        // Compilar el modelo con el optimizador SGD y la función de pérdida de error cuadrático medio
+        model.compile({
+            optimizer: 'sgd',
+            loss: 'meanSquaredError'
+        });
+
+        // Crear datos de ejemplo para el entrenamiento
+        const xs = tf.tensor2d([1, 2, 3, 4], [4, 1]); // Entradas
+        const ys = tf.tensor2d([1, 3, 5, 7], [4, 1]); // Salidas deseadas
+
+        // Seleccionar el contenedor HTML donde se mostrará la gráfica de la pérdida
+        const lossContainer = document.getElementById('loss-canvas');
+
+        // Array para almacenar los valores de pérdida por época
+        const lossValues = [];
+
+        // Función para entrenar el modelo y visualizar la pérdida
+        async function trainModel() {
+            // Entrenar el modelo con los datos, por 100 épocas
+            await model.fit(xs, ys, {
+                epochs: 100,
+                // Callback que se ejecuta al final de cada época
+                callbacks: {
+                    onEpochEnd: async (epoch, logs) => {
+                        // Validar que el valor de pérdida sea un número finito
+                        if (isFinite(logs.loss)) {
+                            // Mostrar en la consola la pérdida de la época actual
+                            console.log(`Epoch ${epoch}: loss = ${logs.loss}`);
+                            // Agregar el valor de la pérdida al array de pérdidas
+                            lossValues.push({x: epoch, y: logs.loss});
+                            // Actualizar la gráfica de la pérdida con los valores acumulados
+                            tfvis.render.linechart(
+                                // Contenedor donde se muestra la gráfica
+                                lossContainer, 
+                                // Datos a graficar
+                                {values: [lossValues], series: ['Pérdida']}, 
+                                // Configuración de la gráfica
+                                {
+                                    xLabel: 'Época',
+                                    yLabel: 'Pérdida',
+                                    width: 400,
+                                    height: 300,
+                                    seriesColors: ['#FF0000'], // Color de la serie de datos
+                                    yAxisDomain: [0, Math.max(...lossValues.map(d => d.y)) * 1.1] // Rango dinámico del eje Y
+                                }
+                            );
+                        } else {
+                            console.warn(`Epoch ${epoch}: loss is not finite`);
+                        }
+                    }
+                }
+            });
+        }
+
+        // Iniciar el entrenamiento del modelo
+        trainModel();
+    </script>
+</body>
+</html>
